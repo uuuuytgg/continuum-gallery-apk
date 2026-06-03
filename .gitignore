@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Local toolchains downloaded for this workspace
+toolchains/
+
+# Android/Gradle generated files
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/capacitor-cordova-android-plugins/
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
+android/app/src/main/res/xml/config.xml
+
+# Generated packages
+*.apk
+*.aab
+*.aar
+
+# Local editor and OS files
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*

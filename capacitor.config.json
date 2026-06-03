@@ -1,0 +1,11 @@
+{
+  "appId": "com.uuuuytgg.continuumgallery",
+  "appName": "Continuum Gallery",
+  "webDir": "web",
+  "bundledWebRuntime": false,
+  "android": {
+    "allowMixedContent": false,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": true
+  }
+}

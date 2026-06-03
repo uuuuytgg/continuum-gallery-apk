@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Continuum Gallery</title>
+    <link rel="stylesheet" href="styles.css?v=20260526-perf3" />
+    <script defer src="app.js?v=20260526-perf3"></script>
+  </head>
+  <body data-mode="waterfall">
+    <div class="app" id="app">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <div>
+            <strong>Continuum Gallery</strong>
+            <span id="modeLabel">瀑布流</span>
+          </div>
+        </div>
+        <div class="top-actions">
+          <button class="import-button" id="importButton" type="button" aria-label="导入本地照片">
+            <span aria-hidden="true">+</span>
+            <strong>导入</strong>
+          </button>
+          <button class="icon-button" id="focusButton" type="button" aria-label="聚焦当前照片" title="聚焦">
+            <span aria-hidden="true">◎</span>
+          </button>
+        </div>
+      </header>
+
+      <main class="stage" id="stage" tabindex="0" aria-label="图片展示区">
+        <canvas class="grain-canvas" id="grainCanvas" aria-hidden="true"></canvas>
+        <div class="gallery" id="gallery"></div>
+        <div class="mode-toast" id="modeToast">瀑布流</div>
+      </main>
+
+      <nav class="bottom-bar" aria-label="展示模式">
+        <div class="segmented" id="modeButtons">
+          <button type="button" data-mode="waterfall" aria-pressed="true">
+            <span class="mode-icon mode-icon-waterfall" aria-hidden="true"></span>
+            <span>瀑布</span>
+          </button>
+          <button type="button" data-mode="orbit" aria-pressed="false">
+            <span class="mode-icon mode-icon-orbit" aria-hidden="true"></span>
+            <span>滑动</span>
+          </button>
+          <button type="button" data-mode="sphere" aria-pressed="false">
+            <span class="mode-icon mode-icon-sphere" aria-hidden="true"></span>
+            <span>粒子</span>
+          </button>
+        </div>
+        <button class="immersive-button" id="immersiveButton" type="button">沉浸</button>
+      </nav>
+
+      <section class="photos-panel" id="photosPanel" aria-hidden="true" aria-label="本地照片导入">
+        <div class="panel-header">
+          <strong>本地照片</strong>
+          <button type="button" id="photosPanelClose" aria-label="关闭">×</button>
+        </div>
+        <input class="photo-file-input" id="photoFileInput" type="file" accept="image/*" multiple />
+        <div class="panel-actions">
+          <button type="button" id="clearPhotosButton">清空</button>
+          <button type="button" id="importPhotosButton">选择照片</button>
+        </div>
+        <output class="photos-status" id="photosStatus"></output>
+      </section>
+
+      <section class="viewer" id="viewer" aria-hidden="true" aria-label="单图观赏">
+        <button class="viewer-close" id="viewerClose" type="button" aria-label="关闭单图观赏" title="关闭">×</button>
+        <div class="viewer-tools" aria-label="Image zoom controls">
+          <button id="viewerZoomOut" type="button" aria-label="Zoom out" title="Zoom out">-</button>
+          <button id="viewerZoomReset" type="button" aria-label="Reset zoom" title="Reset zoom">100%</button>
+          <button id="viewerZoomIn" type="button" aria-label="Zoom in" title="Zoom in">+</button>
+        </div>
+        <figure class="viewer-frame" id="viewerFrame">
+          <div class="viewer-image-stage" id="viewerImageStage">
+            <img id="viewerImage" alt="" />
+          </div>
+          <figcaption>
+            <strong id="viewerTitle"></strong>
+            <span id="viewerMeta"></span>
+          </figcaption>
+        </figure>
+      </section>
+    </div>
+  </body>
+</html>
