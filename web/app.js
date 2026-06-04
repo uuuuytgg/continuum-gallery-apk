@@ -166,6 +166,7 @@ function detectInitialEffectTier(renderer, deviceInfo = getNativeDeviceInfo()) {
 
   const nativeTier = tierFromNativeDeviceInfo(deviceInfo);
   if (nativeTier) return nativeTier;
+  if (isAndroidBelowFullEffectOS(deviceInfo)) return "balanced";
 
   const gpuTier = tierFromGpuRenderer(renderer);
   if (gpuTier) return gpuTier;
@@ -182,6 +183,11 @@ function getNativeDeviceInfo() {
   } catch {
     return {};
   }
+}
+
+function isAndroidBelowFullEffectOS(info = {}) {
+  const sdkInt = Number(info.sdkInt || 0);
+  return IS_ANDROID_WEBVIEW && sdkInt > 0 && sdkInt < 31;
 }
 
 function readEffectTierOverride() {
@@ -210,6 +216,7 @@ function tierFromGpuRenderer(renderer) {
 }
 
 function tierFromNativeDeviceInfo(info = {}) {
+  const sdkInt = Number(info.sdkInt || 0);
   const text = [
     info.socModel,
     info.socManufacturer,
@@ -225,8 +232,10 @@ function tierFromNativeDeviceInfo(info = {}) {
     .toLowerCase();
 
   if (!text) return "";
-  if (/\bsm(8475|8550|8650|8750)\b/.test(text)) return "full";
-  if (/\bsnapdragon\s*(8\s*\+|8\s*gen\s*[234]|8\s*elite)/.test(text)) return "full";
+  if (sdkInt && sdkInt < 31) return "";
+  if (/\bsm(8475|8550|8650|8750|8850)\b/.test(text)) return "full";
+  if (/\bsnapdragon\s*(8\s*\+|8\s*gen\s*[2345]|8\s*elite)/.test(text)) return "full";
+  if (/\b(waipio|kalama|pineapple|sun)\b/.test(text)) return "full";
   if (/\bsm(8450|8350|8250|7475|7675)\b/.test(text)) return "balanced";
   if (/\bsm(7325|7350|6375|7250)\b/.test(text)) return "low";
 
@@ -258,6 +267,10 @@ function schedulePerformanceCalibration() {
 
   const applyNativeTier = () => {
     nativeDeviceInfo = getNativeDeviceInfo();
+    if (isAndroidBelowFullEffectOS(nativeDeviceInfo)) {
+      updateEffectTier("balanced");
+      return true;
+    }
     const nativeTier = tierFromNativeDeviceInfo(nativeDeviceInfo);
     if (!nativeTier) return false;
     updateEffectTier(nativeTier);
@@ -269,8 +282,11 @@ function schedulePerformanceCalibration() {
     return true;
   };
 
-  if (applyNativeTier() || tierFromGpuRenderer(GPU_RENDERER)) return;
-  window.setTimeout(applyNativeTier, 260);
+  if (applyNativeTier()) return;
+  window.setTimeout(applyNativeTier, 160);
+  window.setTimeout(applyNativeTier, 420);
+  window.setTimeout(applyNativeTier, 1100);
+  if (tierFromGpuRenderer(GPU_RENDERER)) return;
 
   window.setTimeout(async () => {
     if (applyNativeTier()) return;

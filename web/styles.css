@@ -321,6 +321,47 @@ body.is-balanced-power .photo-card img {
   filter: saturate(1.02) contrast(1.02);
 }
 
+body.is-full-power {
+  background:
+    radial-gradient(circle at 18% 10%, rgba(126, 231, 255, 0.12), transparent 34%),
+    radial-gradient(circle at 82% 18%, rgba(240, 90, 162, 0.105), transparent 32%),
+    linear-gradient(180deg, #030405 0%, #090b10 48%, #030405 100%);
+}
+
+body.is-full-power .brand,
+body.is-full-power .icon-button,
+body.is-full-power .import-button,
+body.is-full-power .photos-panel,
+body.is-full-power .bottom-bar,
+body.is-full-power .viewer-close,
+body.is-full-power .viewer-tools button {
+  border-color: rgba(245, 243, 234, 0.22);
+  background:
+    linear-gradient(135deg, #161b20, #080b0f 68%),
+    linear-gradient(90deg, rgba(126, 231, 255, 0.16), rgba(240, 90, 162, 0.12));
+  box-shadow:
+    0 22px 68px rgba(0, 0, 0, 0.44),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 34px rgba(126, 231, 255, 0.1);
+  backdrop-filter: none;
+}
+
+body.is-full-power .photo-card {
+  box-shadow:
+    0 22px 72px rgba(0, 0, 0, 0.42),
+    0 0 36px rgba(126, 231, 255, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  will-change: transform, width, height, opacity, border-radius, filter;
+}
+
+body.is-full-power .photo-card img {
+  filter: saturate(1.08) contrast(1.06);
+}
+
+body.is-full-power .grain-canvas {
+  opacity: 0.96;
+}
+
 body.is-low-power[data-mode="orbit"] .photo-card::after,
 body.is-low-power[data-mode="sphere"] .photo-card::after {
   display: none;

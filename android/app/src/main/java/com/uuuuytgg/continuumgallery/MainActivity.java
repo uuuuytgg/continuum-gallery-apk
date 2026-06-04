@@ -27,6 +27,7 @@ public class MainActivity extends BridgeActivity {
                 info.put("device", safe(Build.DEVICE));
                 info.put("board", safe(Build.BOARD));
                 info.put("hardware", safe(Build.HARDWARE));
+                info.put("sdkInt", Build.VERSION.SDK_INT);
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     info.put("socManufacturer", safe(Build.SOC_MANUFACTURER));
                     info.put("socModel", safe(Build.SOC_MODEL));
