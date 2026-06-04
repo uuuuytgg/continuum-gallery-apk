@@ -387,11 +387,13 @@ body.is-low-power .grain-canvas {
 }
 
 body.is-low-power .viewer {
-  transition: none;
+  transition:
+    opacity 120ms ease,
+    background 120ms ease;
 }
 
 body.is-low-power .viewer::before {
-  transition-duration: 120ms;
+  opacity: 0.18;
 }
 
 body.is-low-power .viewer-frame img {
@@ -658,37 +660,31 @@ body[data-mode="orbit"] .grain-canvas {
   inset: 0;
   display: block;
   padding: 0;
-  background: transparent;
-  isolation: isolate;
-  opacity: 1;
+  background: rgba(2, 3, 4, 0);
+  opacity: 0;
   pointer-events: none;
-  visibility: hidden;
+  transition:
+    opacity 360ms ease,
+    background 360ms ease;
 }
 
 .viewer::before {
   content: "";
   position: absolute;
   inset: 0;
-  z-index: 0;
   background:
-    linear-gradient(rgba(245, 243, 234, 0.015) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(126, 231, 255, 0.014) 1px, transparent 1px),
-    linear-gradient(rgba(2, 3, 4, 0.94), rgba(2, 3, 4, 0.94));
-  background-size: 120px 120px, 120px 120px, auto;
+    linear-gradient(rgba(245, 243, 234, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(126, 231, 255, 0.04) 1px, transparent 1px);
+  background-size: 120px 120px;
   mask-image: linear-gradient(to bottom, black 0%, black 70%, transparent 100%);
-  opacity: 0;
+  opacity: 0.34;
   pointer-events: none;
-  transition: opacity 220ms ease;
-  will-change: opacity;
 }
 
 .viewer.is-open {
-  pointer-events: auto;
-  visibility: visible;
-}
-
-.viewer.is-scrim-visible::before {
+  background: rgba(2, 3, 4, 0.94);
   opacity: 1;
+  pointer-events: auto;
 }
 
 .viewer-tools {
@@ -723,7 +719,6 @@ body[data-mode="orbit"] .grain-canvas {
 
 .viewer-frame {
   position: relative;
-  z-index: 1;
   display: grid;
   width: 100vw;
   height: 100vh;
