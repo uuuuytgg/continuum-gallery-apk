@@ -34,6 +34,7 @@ const ACTIVE_ALBUM_ID = "active-local-photos";
 const IS_ANDROID_WEBVIEW = /Android/i.test(navigator.userAgent);
 const PREFERS_REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const EFFECT_TIER_OVERRIDE_KEY = "continuum-gallery.effectTier";
+const VIEWER_FULL_IMAGE_WAIT_MS = 120;
 const EFFECT_PROFILES = {
   low: {
     importDisplayMaxSide: 1600,
@@ -116,7 +117,7 @@ const state = {
     isPanning: false,
     lastX: 0,
     lastY: 0,
-    pendingImage: null,
+    imageToken: 0,
   },
   orbit: {
     x: 0,
@@ -1641,35 +1642,48 @@ function isViewerOpen() {
   return viewer.classList.contains("is-open");
 }
 
-function openViewer(index) {
+async function openViewer(index) {
   const card = cards[index];
   if (!card) return;
   state.selected = index;
   const item = items[index];
+  const token = ++state.viewer.imageToken;
 
   resetViewerTransform();
-  state.viewer.pendingImage = null;
   viewerTitle.textContent = item.title;
   viewerMeta.textContent = item.place;
   const previewSrc = getCardImageSrc(item);
-  viewerImage.src = previewSrc;
+  const fullSrc = item.src || previewSrc;
+  const fullImagePromise = fullSrc && fullSrc !== previewSrc ? decodeViewerImage(fullSrc) : Promise.resolve(fullSrc);
+  let viewerSrc = previewSrc;
+
+  if (!effectProfile.fastMotionLayout && effectTier === "full" && fullSrc !== previewSrc) {
+    const readySrc = await withTimeout(fullImagePromise, VIEWER_FULL_IMAGE_WAIT_MS);
+    if (token !== state.viewer.imageToken) return;
+    if (readySrc) viewerSrc = readySrc;
+  }
+
+  viewerImage.src = viewerSrc;
   viewerImage.alt = item.title;
   viewerImage.classList.remove("is-visible");
   clearViewerFullImage();
   const sourceRect = effectProfile.fastMotionLayout ? null : card.getBoundingClientRect();
-  const clone = sourceRect ? makeFlightClone(previewSrc, sourceRect) : null;
+  const clone = sourceRect ? makeFlightClone(viewerSrc, sourceRect) : null;
   if (clone) document.body.appendChild(clone);
   viewer.classList.add("is-open");
   viewer.setAttribute("aria-hidden", "false");
 
   if (effectProfile.fastMotionLayout) {
-    openViewerFast(item);
+    openViewerFast(item, fullImagePromise, token);
     return;
   }
 
   requestAnimationFrame(() => {
+    if (token !== state.viewer.imageToken) {
+      clone.remove();
+      return;
+    }
     const targetRect = getViewerTargetRect(item);
-    preloadViewerImage(item.src);
     const flight = clone.animate(
       [
         rectKeyframe(sourceRect, 0.98),
@@ -1682,54 +1696,65 @@ function openViewer(index) {
       },
     );
     flight.finished.finally(() => {
+      if (token !== state.viewer.imageToken) {
+        clone.remove();
+        return;
+      }
       clone.remove();
       viewerImage.classList.add("is-visible");
-      promoteViewerImage(item.src);
+      if (fullSrc !== viewerImage.src) {
+        fullImagePromise.then((src) => promoteViewerImage(src, token));
+      }
     });
   });
 }
 
-function openViewerFast(item) {
+function openViewerFast(item, fullImagePromise, token) {
   requestAnimationFrame(() => {
+    if (token !== state.viewer.imageToken) return;
     viewerImage.classList.add("is-visible");
     if (!item.src || item.src === viewerImage.src) return;
-
-    const fullImage = new Image();
-    fullImage.onload = () => {
-      if (!isViewerOpen()) return;
-      viewerImage.src = item.src;
-    };
-    fullImage.src = item.src;
+    fullImagePromise.then((src) => promoteViewerImage(src, token));
   });
 }
 
-function preloadViewerImage(src) {
-  if (!src || src === viewerImage.src) return;
-  const fullImage = new Image();
-  fullImage.decoding = "async";
-  fullImage.src = src;
-  state.viewer.pendingImage = fullImage;
+function decodeViewerImage(src) {
+  if (!src) return Promise.resolve("");
+  return new Promise((resolve) => {
+    const image = new Image();
+    image.decoding = "async";
+    image.onload = () => {
+      const decoded = image.decode ? image.decode().catch(() => {}) : Promise.resolve();
+      decoded.finally(() => resolve(src));
+    };
+    image.onerror = () => resolve("");
+    image.src = src;
+  });
 }
 
-function promoteViewerImage(src) {
-  if (!src || src === viewerImage.src) return;
-  const pending = state.viewer.pendingImage;
-  const imageReady = pending?.decode ? pending.decode().catch(() => {}) : Promise.resolve();
-  imageReady.finally(() => {
-    if (!isViewerOpen() || state.viewer.pendingImage !== pending) return;
-    viewerFullImage.classList.remove("is-visible");
-    viewerFullImage.alt = viewerImage.alt;
-    viewerFullImage.dataset.src = src;
-    viewerFullImage.src = src;
-    state.viewer.pendingImage = null;
-    const domReady = viewerFullImage.decode ? viewerFullImage.decode().catch(() => {}) : Promise.resolve();
-    domReady.finally(() => {
-      if (!isViewerOpen() || viewerFullImage.dataset.src !== src) return;
+function withTimeout(promise, timeoutMs) {
+  return new Promise((resolve) => {
+    const timeoutId = window.setTimeout(() => resolve(""), timeoutMs);
+    promise.then((value) => {
+      window.clearTimeout(timeoutId);
+      resolve(value);
+    });
+  });
+}
+
+function promoteViewerImage(src, token) {
+  if (!src || src === viewerImage.src || token !== state.viewer.imageToken || !isViewerOpen()) return;
+  viewerFullImage.classList.remove("is-visible");
+  viewerFullImage.alt = viewerImage.alt;
+  viewerFullImage.dataset.src = src;
+  viewerFullImage.src = src;
+  const domReady = viewerFullImage.decode ? viewerFullImage.decode().catch(() => {}) : Promise.resolve();
+  domReady.finally(() => {
+    if (token !== state.viewer.imageToken || !isViewerOpen() || viewerFullImage.dataset.src !== src) return;
+    requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          if (!isViewerOpen() || viewerFullImage.dataset.src !== src) return;
-          viewerFullImage.classList.add("is-visible");
-        });
+        if (token !== state.viewer.imageToken || !isViewerOpen() || viewerFullImage.dataset.src !== src) return;
+        viewerFullImage.classList.add("is-visible");
       });
     });
   });
@@ -1750,7 +1775,7 @@ function getActiveViewerImageSrc() {
 
 function closeViewer() {
   if (!viewer.classList.contains("is-open")) return;
-  state.viewer.pendingImage = null;
+  state.viewer.imageToken += 1;
 
   if (effectProfile.fastMotionLayout) {
     closeViewerFast();

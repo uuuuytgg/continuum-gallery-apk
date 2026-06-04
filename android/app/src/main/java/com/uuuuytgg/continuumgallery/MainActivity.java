@@ -7,6 +7,7 @@ import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
+import android.webkit.WebView;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
@@ -27,9 +28,12 @@ public class MainActivity extends BridgeActivity {
     @Override
     protected void load() {
         super.load();
-        getBridge().getWebView().addJavascriptInterface(new DeviceInfoBridge(), "ContinuumDeviceInfo");
+        WebView webView = getBridge().getWebView();
+        if (webView != null) {
+            webView.setBackgroundColor(Color.TRANSPARENT);
+            webView.addJavascriptInterface(new DeviceInfoBridge(), "ContinuumDeviceInfo");
+        }
         installWebViewInsetsBridge();
-        getBridge().reload();
     }
 
     private void configureEdgeToEdgeWindow() {
