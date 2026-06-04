@@ -1293,6 +1293,12 @@ function setCardStyle(card, layout) {
 
 function tick() {
   const now = performance.now();
+
+  if (isViewerOpen()) {
+    requestAnimationFrame(tick);
+    return;
+  }
+
   const layoutInterval = effectProfile.layoutInterval;
 
   if (state.mode === "orbit" && now > state.transitionUntil) {
@@ -1530,22 +1536,31 @@ function handleViewerDoubleClick(event) {
   }
 }
 
+function isViewerOpen() {
+  return viewer.classList.contains("is-open");
+}
+
 function openViewer(index) {
   const card = cards[index];
   if (!card) return;
   state.selected = index;
   const item = items[index];
-  const sourceRect = card.getBoundingClientRect();
 
   resetViewerTransform();
   viewerTitle.textContent = item.title;
   viewerMeta.textContent = item.place;
-  viewerImage.src = item.src;
+  viewerImage.src = effectProfile.fastMotionLayout ? getCardImageSrc(item) : item.src;
   viewerImage.alt = item.title;
   viewerImage.classList.remove("is-visible");
   viewer.classList.add("is-open");
   viewer.setAttribute("aria-hidden", "false");
 
+  if (effectProfile.fastMotionLayout) {
+    openViewerFast(item);
+    return;
+  }
+
+  const sourceRect = card.getBoundingClientRect();
   requestAnimationFrame(() => {
     const imageReady = viewerImage.decode ? viewerImage.decode().catch(() => {}) : Promise.resolve();
     imageReady.finally(() => {
@@ -1571,8 +1586,28 @@ function openViewer(index) {
   });
 }
 
+function openViewerFast(item) {
+  requestAnimationFrame(() => {
+    viewerImage.classList.add("is-visible");
+    if (!item.src || item.src === viewerImage.src) return;
+
+    const fullImage = new Image();
+    fullImage.onload = () => {
+      if (!isViewerOpen()) return;
+      viewerImage.src = item.src;
+    };
+    fullImage.src = item.src;
+  });
+}
+
 function closeViewer() {
   if (!viewer.classList.contains("is-open")) return;
+
+  if (effectProfile.fastMotionLayout) {
+    closeViewerFast();
+    return;
+  }
+
   const card = cards[state.selected];
   const sourceRect = state.viewer.zoom > 1.01
     ? viewerImage.getBoundingClientRect()
@@ -1598,6 +1633,15 @@ function closeViewer() {
     viewer.classList.remove("is-open");
     viewer.setAttribute("aria-hidden", "true");
   });
+}
+
+function closeViewerFast() {
+  viewerImage.classList.remove("is-visible");
+  window.setTimeout(() => {
+    resetViewerTransform();
+    viewer.classList.remove("is-open");
+    viewer.setAttribute("aria-hidden", "true");
+  }, 120);
 }
 
 function makeFlightClone(src, rect) {
