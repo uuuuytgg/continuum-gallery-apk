@@ -16,6 +16,7 @@ const importPhotosButton = document.getElementById("importPhotosButton");
 const photosStatus = document.getElementById("photosStatus");
 const viewer = document.getElementById("viewer");
 const viewerImage = document.getElementById("viewerImage");
+const viewerFullImage = document.getElementById("viewerFullImage");
 const viewerTitle = document.getElementById("viewerTitle");
 const viewerMeta = document.getElementById("viewerMeta");
 const viewerClose = document.getElementById("viewerClose");
@@ -186,6 +187,21 @@ function getNativeDeviceInfo() {
   }
 }
 
+function applyNativeSafeAreaInsets() {
+  try {
+    const bridge = window.ContinuumDeviceInfo;
+    if (!bridge || typeof bridge.getSafeAreaInsets !== "function") return;
+    const value = bridge.getSafeAreaInsets();
+    const insets = value ? JSON.parse(value) : {};
+    for (const side of ["top", "right", "bottom", "left"]) {
+      const amount = Number(insets[side] || 0);
+      document.documentElement.style.setProperty(`--native-safe-${side}`, `${Math.max(0, amount)}px`);
+    }
+  } catch {
+    // Ignore missing or temporarily unavailable Android inset bridge.
+  }
+}
+
 function isAndroidBelowFullEffectOS(info = {}) {
   const sdkInt = Number(info.sdkInt || 0);
   return IS_ANDROID_WEBVIEW && sdkInt > 0 && sdkInt < 31;
@@ -324,6 +340,7 @@ async function measureCanvasThroughput() {
 }
 
 function init() {
+  applyNativeSafeAreaInsets();
   applyEffectTier(effectTier);
   setImportStatus("选择本地照片");
   renderCards();
@@ -610,6 +627,7 @@ function buildSpherePoints() {
 }
 
 function handleResize() {
+  applyNativeSafeAreaInsets();
   resizeCanvas();
   clearTimeout(resizeTimer);
   resizeTimer = window.setTimeout(() => {
@@ -1514,10 +1532,12 @@ function updateViewerTransform() {
   const zoom = state.viewer.zoom.toFixed(3);
   const panX = `${state.viewer.panX.toFixed(1)}px`;
   const panY = `${state.viewer.panY.toFixed(1)}px`;
-  viewerImage.style.setProperty("--viewer-zoom", zoom);
-  viewerImage.style.setProperty("--viewer-pan-x", panX);
-  viewerImage.style.setProperty("--viewer-pan-y", panY);
-  viewerImage.style.transform = `translate3d(${panX}, ${panY}, 0) scale(${zoom})`;
+  for (const image of [viewerImage, viewerFullImage]) {
+    image.style.setProperty("--viewer-zoom", zoom);
+    image.style.setProperty("--viewer-pan-x", panX);
+    image.style.setProperty("--viewer-pan-y", panY);
+    image.style.transform = `translate3d(${panX}, ${panY}, 0) scale(${zoom})`;
+  }
   viewer.dataset.zoomed = state.viewer.zoom > 1.01 ? "true" : "false";
   viewerZoomReset.textContent = `${Math.round(state.viewer.zoom * 100)}%`;
 }
@@ -1635,6 +1655,7 @@ function openViewer(index) {
   viewerImage.src = previewSrc;
   viewerImage.alt = item.title;
   viewerImage.classList.remove("is-visible");
+  clearViewerFullImage();
   const sourceRect = effectProfile.fastMotionLayout ? null : card.getBoundingClientRect();
   const clone = sourceRect ? makeFlightClone(previewSrc, sourceRect) : null;
   if (clone) document.body.appendChild(clone);
@@ -1685,6 +1706,7 @@ function openViewerFast(item) {
 function preloadViewerImage(src) {
   if (!src || src === viewerImage.src) return;
   const fullImage = new Image();
+  fullImage.decoding = "async";
   fullImage.src = src;
   state.viewer.pendingImage = fullImage;
 }
@@ -1695,9 +1717,35 @@ function promoteViewerImage(src) {
   const imageReady = pending?.decode ? pending.decode().catch(() => {}) : Promise.resolve();
   imageReady.finally(() => {
     if (!isViewerOpen() || state.viewer.pendingImage !== pending) return;
-    viewerImage.src = src;
+    viewerFullImage.classList.remove("is-visible");
+    viewerFullImage.alt = viewerImage.alt;
+    viewerFullImage.dataset.src = src;
+    viewerFullImage.src = src;
     state.viewer.pendingImage = null;
+    const domReady = viewerFullImage.decode ? viewerFullImage.decode().catch(() => {}) : Promise.resolve();
+    domReady.finally(() => {
+      if (!isViewerOpen() || viewerFullImage.dataset.src !== src) return;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (!isViewerOpen() || viewerFullImage.dataset.src !== src) return;
+          viewerFullImage.classList.add("is-visible");
+        });
+      });
+    });
   });
+}
+
+function clearViewerFullImage() {
+  viewerFullImage.classList.remove("is-visible");
+  viewerFullImage.removeAttribute("src");
+  delete viewerFullImage.dataset.src;
+  viewerFullImage.alt = "";
+}
+
+function getActiveViewerImageSrc() {
+  return viewerFullImage.classList.contains("is-visible") && viewerFullImage.src
+    ? viewerFullImage.src
+    : viewerImage.src;
 }
 
 function closeViewer() {
@@ -1714,9 +1762,10 @@ function closeViewer() {
     ? viewerImage.getBoundingClientRect()
     : getViewerTargetRect(items[state.selected] || {});
   const targetRect = card ? card.getBoundingClientRect() : sourceRect;
-  const clone = makeFlightClone(viewerImage.src, sourceRect);
+  const clone = makeFlightClone(getActiveViewerImageSrc(), sourceRect);
   document.body.appendChild(clone);
   viewerImage.classList.remove("is-visible");
+  viewerFullImage.classList.remove("is-visible");
 
   clone.animate(
     [
@@ -1731,6 +1780,7 @@ function closeViewer() {
   ).finished.finally(() => {
     clone.remove();
     resetViewerTransform();
+    clearViewerFullImage();
     viewer.classList.remove("is-open");
     viewer.setAttribute("aria-hidden", "true");
   });
@@ -1738,6 +1788,7 @@ function closeViewer() {
 
 function closeViewerFast() {
   viewerImage.classList.remove("is-visible");
+  clearViewerFullImage();
   window.setTimeout(() => {
     resetViewerTransform();
     viewer.classList.remove("is-open");
