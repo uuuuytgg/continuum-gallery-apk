@@ -1667,6 +1667,7 @@ async function openViewer(index) {
   viewerImage.alt = item.title;
   viewerImage.classList.remove("is-visible");
   clearViewerFullImage();
+  viewer.classList.remove("is-scrim-visible");
   const sourceRect = effectProfile.fastMotionLayout ? null : card.getBoundingClientRect();
   const clone = sourceRect ? makeFlightClone(viewerSrc, sourceRect) : null;
   if (clone) document.body.appendChild(clone);
@@ -1702,6 +1703,7 @@ async function openViewer(index) {
       }
       clone.remove();
       viewerImage.classList.add("is-visible");
+      revealViewerScrim(token);
       if (fullSrc !== viewerImage.src) {
         fullImagePromise.then((src) => promoteViewerImage(src, token));
       }
@@ -1713,8 +1715,16 @@ function openViewerFast(item, fullImagePromise, token) {
   requestAnimationFrame(() => {
     if (token !== state.viewer.imageToken) return;
     viewerImage.classList.add("is-visible");
+    revealViewerScrim(token);
     if (!item.src || item.src === viewerImage.src) return;
     fullImagePromise.then((src) => promoteViewerImage(src, token));
+  });
+}
+
+function revealViewerScrim(token) {
+  requestAnimationFrame(() => {
+    if (token !== state.viewer.imageToken || !isViewerOpen()) return;
+    viewer.classList.add("is-scrim-visible");
   });
 }
 
@@ -1776,6 +1786,7 @@ function getActiveViewerImageSrc() {
 function closeViewer() {
   if (!viewer.classList.contains("is-open")) return;
   state.viewer.imageToken += 1;
+  viewer.classList.remove("is-scrim-visible");
 
   if (effectProfile.fastMotionLayout) {
     closeViewerFast();
