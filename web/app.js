@@ -115,6 +115,7 @@ const state = {
     isPanning: false,
     lastX: 0,
     lastY: 0,
+    pendingImage: null,
   },
   orbit: {
     x: 0,
@@ -204,8 +205,7 @@ function tierFromGpuRenderer(renderer) {
   const adrenoMatch = text.match(/adreno(?:\s+\(tm\))?\s+(\d+)/i);
   if (adrenoMatch) {
     const model = Number(adrenoMatch[1]);
-    if (model >= 730) return "full";
-    if (model >= 650 || model >= 710) return "balanced";
+    if (model >= 650) return "full";
     return "low";
   }
 
@@ -233,10 +233,10 @@ function tierFromNativeDeviceInfo(info = {}) {
 
   if (!text) return "";
   if (sdkInt && sdkInt < 31) return "";
-  if (/\bsm(8475|8550|8650|8750|8850)\b/.test(text)) return "full";
-  if (/\bsnapdragon\s*(8\s*\+|8\s*gen\s*[2345]|8\s*elite)/.test(text)) return "full";
-  if (/\b(waipio|kalama|pineapple|sun)\b/.test(text)) return "full";
-  if (/\bsm(8450|8350|8250|7475|7675)\b/.test(text)) return "balanced";
+  if (/\bsm(8250(?:-ac)?|8350|8450|8475|8550|8650|8750|8850)\b/.test(text)) return "full";
+  if (/\bsnapdragon\s*(870|8\s*\+|8\s*gen\s*[12345]|8\s*elite)/.test(text)) return "full";
+  if (/\b(kona|lahaina|waipio|kalama|pineapple|sun)\b/.test(text)) return "full";
+  if (/\bsm(7475|7675)\b/.test(text)) return "balanced";
   if (/\bsm(7325|7350|6375|7250)\b/.test(text)) return "low";
 
   return "";
@@ -1628,11 +1628,16 @@ function openViewer(index) {
   const item = items[index];
 
   resetViewerTransform();
+  state.viewer.pendingImage = null;
   viewerTitle.textContent = item.title;
   viewerMeta.textContent = item.place;
-  viewerImage.src = effectProfile.fastMotionLayout ? getCardImageSrc(item) : item.src;
+  const previewSrc = getCardImageSrc(item);
+  viewerImage.src = previewSrc;
   viewerImage.alt = item.title;
   viewerImage.classList.remove("is-visible");
+  const sourceRect = effectProfile.fastMotionLayout ? null : card.getBoundingClientRect();
+  const clone = sourceRect ? makeFlightClone(previewSrc, sourceRect) : null;
+  if (clone) document.body.appendChild(clone);
   viewer.classList.add("is-open");
   viewer.setAttribute("aria-hidden", "false");
 
@@ -1641,28 +1646,24 @@ function openViewer(index) {
     return;
   }
 
-  const sourceRect = card.getBoundingClientRect();
   requestAnimationFrame(() => {
-    const imageReady = viewerImage.decode ? viewerImage.decode().catch(() => {}) : Promise.resolve();
-    imageReady.finally(() => {
-      const targetRect = getViewerTargetRect(item);
-      const clone = makeFlightClone(item.src, sourceRect);
-      document.body.appendChild(clone);
-      const flight = clone.animate(
-        [
-          rectKeyframe(sourceRect, 0.98),
-          rectKeyframe(targetRect, 1),
-        ],
-        {
-          duration: 720,
-          easing: "cubic-bezier(0.2, 0.82, 0.18, 1)",
-          fill: "forwards",
-        },
-      );
-      flight.finished.finally(() => {
-        clone.remove();
-        viewerImage.classList.add("is-visible");
-      });
+    const targetRect = getViewerTargetRect(item);
+    preloadViewerImage(item.src);
+    const flight = clone.animate(
+      [
+        rectKeyframe(sourceRect, 0.98),
+        rectKeyframe(targetRect, 1),
+      ],
+      {
+        duration: 720,
+        easing: "cubic-bezier(0.2, 0.82, 0.18, 1)",
+        fill: "forwards",
+      },
+    );
+    flight.finished.finally(() => {
+      clone.remove();
+      viewerImage.classList.add("is-visible");
+      promoteViewerImage(item.src);
     });
   });
 }
@@ -1681,8 +1682,27 @@ function openViewerFast(item) {
   });
 }
 
+function preloadViewerImage(src) {
+  if (!src || src === viewerImage.src) return;
+  const fullImage = new Image();
+  fullImage.src = src;
+  state.viewer.pendingImage = fullImage;
+}
+
+function promoteViewerImage(src) {
+  if (!src || src === viewerImage.src) return;
+  const pending = state.viewer.pendingImage;
+  const imageReady = pending?.decode ? pending.decode().catch(() => {}) : Promise.resolve();
+  imageReady.finally(() => {
+    if (!isViewerOpen() || state.viewer.pendingImage !== pending) return;
+    viewerImage.src = src;
+    state.viewer.pendingImage = null;
+  });
+}
+
 function closeViewer() {
   if (!viewer.classList.contains("is-open")) return;
+  state.viewer.pendingImage = null;
 
   if (effectProfile.fastMotionLayout) {
     closeViewerFast();
