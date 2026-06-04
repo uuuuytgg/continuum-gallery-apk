@@ -75,7 +75,8 @@ const EFFECT_PROFILES = {
   },
 };
 const GPU_RENDERER = getGpuRenderer();
-let effectTier = detectInitialEffectTier(GPU_RENDERER);
+let nativeDeviceInfo = getNativeDeviceInfo();
+let effectTier = detectInitialEffectTier(GPU_RENDERER, nativeDeviceInfo);
 let effectProfile = EFFECT_PROFILES[effectTier];
 const MODE_NAMES = {
   waterfall: "瀑布流",
@@ -158,15 +159,29 @@ function getGpuRenderer() {
   }
 }
 
-function detectInitialEffectTier(renderer) {
+function detectInitialEffectTier(renderer, deviceInfo = getNativeDeviceInfo()) {
   const override = readEffectTierOverride();
   if (override) return override;
   if (PREFERS_REDUCED_MOTION) return "low";
+
+  const nativeTier = tierFromNativeDeviceInfo(deviceInfo);
+  if (nativeTier) return nativeTier;
 
   const gpuTier = tierFromGpuRenderer(renderer);
   if (gpuTier) return gpuTier;
 
   return IS_ANDROID_WEBVIEW ? "low" : "full";
+}
+
+function getNativeDeviceInfo() {
+  try {
+    const bridge = window.ContinuumDeviceInfo;
+    if (!bridge || typeof bridge.getDeviceInfo !== "function") return {};
+    const value = bridge.getDeviceInfo();
+    return value ? JSON.parse(value) : {};
+  } catch {
+    return {};
+  }
 }
 
 function readEffectTierOverride() {
@@ -194,6 +209,30 @@ function tierFromGpuRenderer(renderer) {
   return "";
 }
 
+function tierFromNativeDeviceInfo(info = {}) {
+  const text = [
+    info.socModel,
+    info.socManufacturer,
+    info.hardware,
+    info.board,
+    info.device,
+    info.model,
+    info.manufacturer,
+    info.brand,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  if (!text) return "";
+  if (/\bsm(8475|8550|8650|8750)\b/.test(text)) return "full";
+  if (/\bsnapdragon\s*(8\s*\+|8\s*gen\s*[234]|8\s*elite)/.test(text)) return "full";
+  if (/\bsm(8450|8350|8250|7475|7675)\b/.test(text)) return "balanced";
+  if (/\bsm(7325|7350|6375|7250)\b/.test(text)) return "low";
+
+  return "";
+}
+
 function applyEffectTier(nextTier) {
   effectTier = Object.prototype.hasOwnProperty.call(EFFECT_PROFILES, nextTier) ? nextTier : "low";
   effectProfile = EFFECT_PROFILES[effectTier];
@@ -203,21 +242,47 @@ function applyEffectTier(nextTier) {
   document.body.classList.toggle("is-full-power", effectTier === "full");
 }
 
+function updateEffectTier(nextTier) {
+  if (!Object.prototype.hasOwnProperty.call(EFFECT_PROFILES, nextTier) || nextTier === effectTier) return false;
+  applyEffectTier(nextTier);
+  buildSpherePoints();
+  resizeCanvas();
+  applyLayout({ immediate: true });
+  return true;
+}
+
 function schedulePerformanceCalibration() {
-  if (!IS_ANDROID_WEBVIEW || PREFERS_REDUCED_MOTION || readEffectTierOverride() || tierFromGpuRenderer(GPU_RENDERER)) {
+  if (!IS_ANDROID_WEBVIEW || PREFERS_REDUCED_MOTION || readEffectTierOverride()) {
     return;
   }
 
+  const applyNativeTier = () => {
+    nativeDeviceInfo = getNativeDeviceInfo();
+    const nativeTier = tierFromNativeDeviceInfo(nativeDeviceInfo);
+    if (!nativeTier) return false;
+    updateEffectTier(nativeTier);
+    console.info(`Continuum Gallery effect tier: ${effectTier}`, {
+      renderer: GPU_RENDERER || "unknown",
+      device: nativeDeviceInfo,
+      source: "native",
+    });
+    return true;
+  };
+
+  if (applyNativeTier() || tierFromGpuRenderer(GPU_RENDERER)) return;
+  window.setTimeout(applyNativeTier, 260);
+
   window.setTimeout(async () => {
+    if (applyNativeTier()) return;
     const score = await measureCanvasThroughput();
     const nextTier = score > 5.6 ? "full" : score > 3.2 ? "balanced" : "low";
-    if (nextTier !== effectTier) {
-      applyEffectTier(nextTier);
-      buildSpherePoints();
-      resizeCanvas();
-      applyLayout({ immediate: true });
-    }
-    console.info(`Continuum Gallery effect tier: ${effectTier}`, { renderer: GPU_RENDERER || "unknown", score });
+    updateEffectTier(nextTier);
+    console.info(`Continuum Gallery effect tier: ${effectTier}`, {
+      renderer: GPU_RENDERER || "unknown",
+      device: nativeDeviceInfo,
+      score,
+      source: "calibration",
+    });
   }, 900);
 }
 
