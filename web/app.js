@@ -32,6 +32,8 @@ const PHOTO_DB_VERSION = 1;
 const PHOTO_STORE_NAME = "albums";
 const ACTIVE_ALBUM_ID = "active-local-photos";
 const IS_ANDROID_WEBVIEW = /Android/i.test(navigator.userAgent);
+const IS_HARMONY_WEBVIEW = /HarmonyOS|OpenHarmony/i.test(navigator.userAgent) ||
+  (typeof window.continuumNativeShell !== "undefined");
 const PREFERS_REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const EFFECT_TIER_OVERRIDE_KEY = "continuum-gallery.effectTier";
 const VIEWER_FULL_IMAGE_WAIT_MS = 120;
@@ -199,9 +201,98 @@ function applyNativeSafeAreaInsets() {
       document.documentElement.style.setProperty(`--native-safe-${side}`, `${Math.max(0, amount)}px`);
     }
   } catch {
-    // Ignore missing or temporarily unavailable Android inset bridge.
+    // Ignore missing or temporarily unavailable inset bridge.
   }
 }
+
+// ========================================
+// HarmonyOS Native Bridge Callbacks
+// Called by the ArkUI shell via JSBridge
+// ========================================
+
+/**
+ * Receive photos from native photoAccessHelper.
+ * Called by: window.onNativePhotosImported(photosJson)
+ * @param {string} photosJson - JSON array of PhotoItem from native
+ */
+window.onNativePhotosImported = async function (photosJson) {
+  try {
+    const rawPhotos = typeof photosJson === "string" ? JSON.parse(photosJson) : photosJson;
+    if (!Array.isArray(rawPhotos) || !rawPhotos.length) return;
+
+    setImportStatus(`导入 ${rawPhotos.length} 张照片...`);
+
+    const imported = [];
+    for (let i = 0; i < rawPhotos.length; i++) {
+      const p = rawPhotos[i];
+      setImportStatus(`处理 ${i + 1}/${rawPhotos.length}`);
+
+      // Native photos use file:// URIs — WebView can load them directly
+      imported.push({
+        id: p.id || `native-${Date.now()}-${i}`,
+        title: p.title || cleanFilename(`Photo ${i + 1}`),
+        place: "本地导入",
+        ratio: p.ratio || 1,
+        source: p.source || p.blobUri || "",
+        blob: null,
+        previewBlob: null,
+        src: p.source || p.blobUri || "",
+        previewSrc: p.previewUri || "",
+      });
+    }
+
+    if (!imported.length) {
+      setImportStatus("没有可导入的图片");
+      return;
+    }
+
+    await savePersistedPhotos(imported);
+    replacePhotoItems(imported);
+    closePhotosPanel();
+    showToast(`本地照片 +${imported.length}`);
+    setImportStatus(`已导入 ${imported.length} 张`);
+  } catch (error) {
+    setImportStatus(error.message || "导入失败");
+  }
+};
+
+/**
+ * Switch display mode from native shell.
+ * Called by: window.setDisplayMode(mode)
+ * @param {string} mode - "waterfall" | "orbit" | "sphere" | "immersive"
+ */
+window.setDisplayMode = function (mode) {
+  if (mode === "immersive") {
+    const idx = typeof state.selected === "number" ? state.selected : 0;
+    openViewer(idx);
+    return;
+  }
+  if (MODES.includes(mode)) {
+    setMode(mode);
+  }
+};
+
+/**
+ * Open the viewer for a specific photo index.
+ * Called by: window.openNativeViewer(index)
+ * @param {number} index
+ */
+window.openNativeViewer = function (index) {
+  if (typeof index === "number" && index >= 0 && index < items.length) {
+    state.selected = index;
+    openViewer(index);
+  }
+};
+
+/**
+ * Close the viewer.
+ * Called by: window.closeNativeViewer()
+ */
+window.closeNativeViewer = function () {
+  if (viewer.classList.contains("is-open")) {
+    closeViewer();
+  }
+};
 
 function isAndroidBelowFullEffectOS(info = {}) {
   const sdkInt = Number(info.sdkInt || 0);
@@ -359,7 +450,15 @@ function init() {
   importButton.addEventListener("click", openPhotosPanel);
   photosPanelClose.addEventListener("click", closePhotosPanel);
   clearPhotosButton.addEventListener("click", clearImportedPhotos);
-  importPhotosButton.addEventListener("click", () => photoFileInput.click());
+  importPhotosButton.addEventListener("click", () => {
+    // HarmonyOS: use native photoAccessHelper via bridge
+    if (IS_HARMONY_WEBVIEW && window.continuumNativeShell?.requestPhotoImport) {
+      closePhotosPanel();
+      window.continuumNativeShell.requestPhotoImport();
+      return;
+    }
+    photoFileInput.click();
+  });
   photoFileInput.addEventListener("change", handleLocalPhotosSelected);
   gallery.addEventListener("click", handleCardClick);
   stage.addEventListener("pointerdown", handlePointerDown);
