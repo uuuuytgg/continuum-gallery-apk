@@ -54,6 +54,52 @@ Clear the override:
 localStorage.removeItem("continuum-gallery.effectTier");
 ```
 
+## Changelog
+
+### v1.0.9 (2026-06-05)
+
+- **Fixed:** Topbar controls overlapped by Android status bar on edge-to-edge devices.
+  - Increased topbar offset from 18px to 72px to clear system status bar area.
+  - Pre-injected `--native-safe-top` CSS variable in `<head>` for first-paint correctness.
+  - Viewer frame padding also adjusted for consistent safe-area handling.
+- Updated app.js version cache-bust.
+
+### v1.0.8 (2026-06-04)
+
+- Rollback: Revert "Delay viewer scrim until image reveal".
+
+### v1.0.7 (2026-06-04)
+
+- Delay viewer scrim until image reveal.
+
+### v1.0.6 (2026-06-04)
+
+- Fix viewer image promotion and splash overlay.
+
+### v1.0.5 (2026-06-04)
+
+- Fix viewer image swap and edge-to-edge insets.
+
+### v1.0.4 (2026-06-04)
+
+- Lower full tier threshold and stabilize viewer open.
+
+### v1.0.3 (2026-06-04)
+
+- Broaden high-end Android full tier detection.
+
+### v1.0.2 (2026-06-04)
+
+- Detect high-end Android SoCs for full effects.
+
+### v1.0.1 (2026-06-04)
+
+- Fix low-tier viewer transition flicker.
+
+### v1.0.0 (2026-06-03)
+
+- Initial open source release.
+
 ## Source Notes
 
 This repository is a standalone Android packaging version. It intentionally does not enable GitHub Pages and does not depend on the original Google Photos picker flow.
@@ -81,6 +127,52 @@ MIT
   - `full`：Snapdragon 8+ Gen 1 / Adreno 730 及以上，开启满血动效。
 - 不依赖 Google Photos、OAuth、Client ID 或云端照片 API。
 - Android Manifest 不申请 `INTERNET` 权限。
+
+## 更新日志
+
+### v1.0.9 (2026-06-05)
+
+- **修复：** 顶部控制栏被 Android 状态栏遮挡（全面屏设备）。
+  - topbar 偏移从 18px 增加到 72px，避开系统状态栏区域。
+  - 在 `<head>` 中预注入 `--native-safe-top` CSS 变量，确保首帧渲染正确。
+  - 查看器内边距同步调整，兼容安全区域逻辑。
+- 更新 app.js 版本缓存。
+
+### v1.0.8 (2026-06-04)
+
+- 回滚：撤销「延迟查看器遮罩至图片显示」。
+
+### v1.0.7 (2026-06-04)
+
+- 延迟查看器遮罩至图片显示。
+
+### v1.0.6 (2026-06-04)
+
+- 修复查看器图片切换与启动遮罩。
+
+### v1.0.5 (2026-06-04)
+
+- 修复查看器图片交换与全屏安全区域。
+
+### v1.0.4 (2026-06-04)
+
+- 降低满血档位门槛，优化查看器打开稳定性。
+
+### v1.0.3 (2026-06-04)
+
+- 扩展高端 Android 满血动效检测范围。
+
+### v1.0.2 (2026-06-04)
+
+- 新增高端 Android SoC 检测，自动开启满血动效。
+
+### v1.0.1 (2026-06-04)
+
+- 修复低端设备查看器切换闪烁。
+
+### v1.0.0 (2026-06-03)
+
+- 初始开源版本。
 
 ## 构建环境
 
