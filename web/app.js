@@ -1670,6 +1670,7 @@ async function openViewer(index) {
   const sourceRect = effectProfile.fastMotionLayout ? null : card.getBoundingClientRect();
   const clone = sourceRect ? makeFlightClone(viewerSrc, sourceRect) : null;
   if (clone) document.body.appendChild(clone);
+  prepareIsolatedViewerScene(previewSrc);
   viewer.classList.add("is-open");
   viewer.setAttribute("aria-hidden", "false");
 
@@ -1700,8 +1701,12 @@ async function openViewer(index) {
         clone.remove();
         return;
       }
-      clone.remove();
       viewerImage.classList.add("is-visible");
+      clone.animate([{ opacity: 1 }, { opacity: 0 }], {
+        duration: 180,
+        easing: "ease-out",
+        fill: "forwards",
+      }).finished.finally(() => clone.remove());
       if (fullSrc !== viewerImage.src) {
         fullImagePromise.then((src) => promoteViewerImage(src, token));
       }
@@ -1716,6 +1721,20 @@ function openViewerFast(item, fullImagePromise, token) {
     if (!item.src || item.src === viewerImage.src) return;
     fullImagePromise.then((src) => promoteViewerImage(src, token));
   });
+}
+
+function prepareIsolatedViewerScene(backgroundSrc) {
+  document.body.classList.add("viewer-isolated");
+  if (backgroundSrc) {
+    viewer.style.setProperty("--viewer-bg-image", `url(${JSON.stringify(backgroundSrc)})`);
+  } else {
+    viewer.style.removeProperty("--viewer-bg-image");
+  }
+}
+
+function clearIsolatedViewerScene() {
+  document.body.classList.remove("viewer-isolated");
+  viewer.style.removeProperty("--viewer-bg-image");
 }
 
 function decodeViewerImage(src) {
@@ -1808,6 +1827,7 @@ function closeViewer() {
     clearViewerFullImage();
     viewer.classList.remove("is-open");
     viewer.setAttribute("aria-hidden", "true");
+    clearIsolatedViewerScene();
   });
 }
 
@@ -1818,6 +1838,7 @@ function closeViewerFast() {
     resetViewerTransform();
     viewer.classList.remove("is-open");
     viewer.setAttribute("aria-hidden", "true");
+    clearIsolatedViewerScene();
   }, 120);
 }
 

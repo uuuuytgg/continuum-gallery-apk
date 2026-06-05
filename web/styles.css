@@ -88,7 +88,7 @@ button {
 .topbar {
   position: fixed;
   z-index: 20;
-  top: calc(18px + var(--native-safe-top));
+  top: calc(72px + var(--native-safe-top));
   left: calc(18px + var(--native-safe-left));
   right: calc(18px + var(--native-safe-right));
   display: flex;
@@ -232,6 +232,14 @@ body[data-mode="sphere"] .stage {
 
 body.is-dragging .stage {
   cursor: grabbing;
+}
+
+body.viewer-isolated .topbar,
+body.viewer-isolated .stage,
+body.viewer-isolated .bottom-bar,
+body.viewer-isolated .photos-panel {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .gallery {
@@ -387,9 +395,7 @@ body.is-low-power .grain-canvas {
 }
 
 body.is-low-power .viewer {
-  transition:
-    opacity 120ms ease,
-    background 120ms ease;
+  transition: none;
 }
 
 body.is-low-power .viewer::before {
@@ -660,36 +666,52 @@ body[data-mode="orbit"] .grain-canvas {
   inset: 0;
   display: block;
   padding: 0;
-  background: rgba(2, 3, 4, 0);
-  opacity: 0;
+  background: #020304;
+  isolation: isolate;
+  opacity: 1;
   pointer-events: none;
-  transition:
-    opacity 360ms ease,
-    background 360ms ease;
+  visibility: hidden;
+  contain: layout paint style;
 }
 
 .viewer::before {
   content: "";
   position: absolute;
+  z-index: 0;
+  inset: -28px;
+  background:
+    var(--viewer-bg-image, linear-gradient(135deg, #071012, #050608));
+  background-position: center;
+  background-size: cover;
+  filter: blur(34px) saturate(1.08) brightness(0.78);
+  opacity: 0.3;
+  transform: scale(1.08);
+  pointer-events: none;
+}
+
+.viewer::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
   inset: 0;
   background:
+    radial-gradient(circle at 50% 48%, rgba(2, 3, 4, 0.58), rgba(2, 3, 4, 0.9) 72%),
     linear-gradient(rgba(245, 243, 234, 0.045) 1px, transparent 1px),
     linear-gradient(90deg, rgba(126, 231, 255, 0.04) 1px, transparent 1px);
-  background-size: 120px 120px;
+  background-size: auto, 120px 120px, 120px 120px;
   mask-image: linear-gradient(to bottom, black 0%, black 70%, transparent 100%);
-  opacity: 0.34;
+  opacity: 1;
   pointer-events: none;
 }
 
 .viewer.is-open {
-  background: rgba(2, 3, 4, 0.94);
-  opacity: 1;
   pointer-events: auto;
+  visibility: visible;
 }
 
 .viewer-tools {
   position: fixed;
-  z-index: 2;
+  z-index: 3;
   top: calc(22px + var(--native-safe-top));
   right: calc(78px + var(--native-safe-right));
   display: flex;
@@ -719,6 +741,7 @@ body[data-mode="orbit"] .grain-canvas {
 
 .viewer-frame {
   position: relative;
+  z-index: 2;
   display: grid;
   width: 100vw;
   height: 100vh;
@@ -760,9 +783,7 @@ body[data-mode="orbit"] .grain-canvas {
     0 0 42px rgba(126, 231, 255, 0.08);
   cursor: zoom-in;
   opacity: 0;
-  transition:
-    opacity 220ms ease,
-    transform 130ms ease-out;
+  transition: transform 130ms ease-out;
   will-change: transform;
 }
 
@@ -945,7 +966,7 @@ body.viewer-panning .viewer-frame img {
 
 @media (max-width: 640px) {
   .topbar {
-    top: calc(12px + var(--native-safe-top));
+    top: calc(72px + var(--native-safe-top));
     left: calc(12px + var(--native-safe-left));
     right: calc(12px + var(--native-safe-right));
   }

@@ -4,8 +4,21 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Continuum Gallery</title>
-    <link rel="stylesheet" href="styles.css?v=20260526-perf3" />
-    <script defer src="app.js?v=20260526-perf3"></script>
+    <script>
+      (function () {
+        // Set safe-area CSS vars before the stylesheet loads so the topbar
+        // renders below the status bar on the very first paint. The native
+        // insets bridge (MainActivity.installWebViewInsetsBridge) and the
+        // JS applyNativeSafeAreaInsets() will override these with precise
+        // values as soon as they are available.
+        var s = document.createElement('style');
+        s.textContent =
+          ':root{--native-safe-top:48px;--native-safe-right:0px;--native-safe-bottom:0px;--native-safe-left:0px}';
+        document.documentElement.appendChild(s);
+      })();
+    </script>
+    <link rel="stylesheet" href="styles.css?v=20260605-safearea" />
+    <script defer src="app.js?v=20260605-safearea"></script>
   </head>
   <body data-mode="waterfall">
     <div class="app" id="app">
